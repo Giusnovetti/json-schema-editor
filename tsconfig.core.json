@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/core/model.ts",
+    "src/core/dialect.ts",
+    "src/core/pointer.ts",
+    "src/core/parser.ts",
+    "src/core/serializer.ts",
+    "src/core/operations.ts",
+    "src/core/selectors.ts",
+    "src/core/validation.ts"
+  ]
+}
