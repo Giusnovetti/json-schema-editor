@@ -226,6 +226,12 @@ npm test
 npm run build
 ```
 
+## License
+
+This project is released under the [MIT License](LICENSE). Third-party
+components remain subject to their respective licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Author
 
 Created by [Giusnovetti](https://github.com/Giusnovetti).
