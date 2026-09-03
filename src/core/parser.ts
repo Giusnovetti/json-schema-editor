@@ -1,5 +1,6 @@
 import {
   DEFAULT_DIALECT,
+  type AdvancedSchemaRelation,
   type ArrayCompositionRelation,
   type JsonSchema,
   type SchemaEdge,
@@ -41,6 +42,7 @@ function schemaEntries(value: unknown): Array<[string, JsonSchema]> {
 
 const ARRAY_APPLICATORS: ArrayCompositionRelation[] = ['allOf', 'anyOf', 'oneOf'];
 const SINGLE_APPLICATORS: SingleCompositionRelation[] = ['not', 'if', 'then', 'else'];
+const ADVANCED_APPLICATORS: AdvancedSchemaRelation[] = ['contains', 'unevaluatedProperties', 'unevaluatedItems'];
 
 export function schemaToGraph(schema: JsonSchema): SchemaGraph {
   const nodes: SchemaNode[] = [];
@@ -95,6 +97,9 @@ export function schemaToGraph(schema: JsonSchema): SchemaGraph {
     const singleApplicators = Object.fromEntries(
       SINGLE_APPLICATORS.map((relation) => [relation, isSchema(value[relation])]),
     ) as Record<SingleCompositionRelation, boolean>;
+    const advancedApplicators = Object.fromEntries(
+      ADVANCED_APPLICATORS.map((relation) => [relation, !draft07 && isSchema(value[relation])]),
+    ) as Record<AdvancedSchemaRelation, boolean>;
 
     if (hasProperties) delete keywords.properties;
     if (hasDefs) delete keywords[definitionsKeyword];
@@ -115,6 +120,9 @@ export function schemaToGraph(schema: JsonSchema): SchemaGraph {
     for (const relation of SINGLE_APPLICATORS) {
       if (singleApplicators[relation]) delete keywords[relation];
     }
+    for (const relation of ADVANCED_APPLICATORS) {
+      if (advancedApplicators[relation]) delete keywords[relation];
+    }
 
     const node: SchemaNode = {
       id: nodeIdForPointer(pointer),
@@ -134,6 +142,9 @@ export function schemaToGraph(schema: JsonSchema): SchemaGraph {
         then: singleApplicators.then,
         else: singleApplicators.else,
         dependentSchemas: hasDependentSchemas,
+        contains: advancedApplicators.contains,
+        unevaluatedProperties: advancedApplicators.unevaluatedProperties,
+        unevaluatedItems: advancedApplicators.unevaluatedItems,
       },
     };
 
@@ -232,6 +243,12 @@ export function schemaToGraph(schema: JsonSchema): SchemaGraph {
       });
     }
 
+    for (const relation of ADVANCED_APPLICATORS) {
+      if (!advancedApplicators[relation]) continue;
+      const child = visit(value[relation] as JsonSchema, appendPointer(pointer, relation));
+      edges.push({ id: edgeId(node.id, relation, child.id), source: node.id, target: child.id, relation });
+    }
+
     if (hasDependentSchemas) {
       for (const [propertyName, dependentSchema] of dependentSchemaEntries) {
         const child = visit(
@@ -255,19 +272,15 @@ export function schemaToGraph(schema: JsonSchema): SchemaGraph {
 
   // Resolve local JSON Pointer refs after every structural subschema has been indexed.
   for (const node of nodes) {
-    const ref = node.keywords.$ref;
-    if (typeof ref !== 'string') continue;
-    const pointer = localRefToPointer(ref);
-    if (pointer === undefined) continue;
-    const target = pointerToNode.get(pointer);
-    if (!target) continue;
-    edges.push({
-      id: edgeId(node.id, 'ref', target.id, ref),
-      source: node.id,
-      target: target.id,
-      relation: 'ref',
-      ref,
-    });
+    for (const [keyword, relation] of [['$ref', 'ref'], ['$dynamicRef', 'dynamicRef']] as const) {
+      const ref = node.keywords[keyword];
+      if (typeof ref !== 'string') continue;
+      const pointer = localRefToPointer(ref);
+      if (pointer === undefined) continue;
+      const target = pointerToNode.get(pointer);
+      if (!target) continue;
+      edges.push({ id: edgeId(node.id, relation, target.id, ref), source: node.id, target: target.id, relation, ref });
+    }
   }
 
   const rootObject = typeof schema === 'boolean' ? undefined : schema;

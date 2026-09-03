@@ -181,6 +181,8 @@ export function ConstraintFields({ node, type }: { node: SchemaNode; type: strin
           <NumberKeyword keyword="minItems" label="minItems" node={node} min={0} step={1} />
           <NumberKeyword keyword="maxItems" label="maxItems" node={node} min={0} step={1} />
           <BooleanKeyword keyword="uniqueItems" label="uniqueItems" node={node} />
+          <NumberKeyword keyword="minContains" label="minContains" node={node} min={0} step={1} />
+          <NumberKeyword keyword="maxContains" label="maxContains" node={node} min={0} step={1} />
         </section>
       )}
 

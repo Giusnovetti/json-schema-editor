@@ -1,4 +1,5 @@
 import type {
+  AdvancedSchemaRelation,
   ArrayCompositionRelation,
   JsonSchema,
   SchemaGraph,
@@ -9,6 +10,7 @@ import { dialectDescriptor } from './dialect';
 
 const ARRAY_APPLICATORS: ArrayCompositionRelation[] = ['allOf', 'anyOf', 'oneOf'];
 const SINGLE_APPLICATORS: SingleCompositionRelation[] = ['not', 'if', 'then', 'else'];
+const ADVANCED_APPLICATORS: AdvancedSchemaRelation[] = ['contains', 'unevaluatedProperties', 'unevaluatedItems'];
 
 function objectValue(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -104,6 +106,14 @@ export function graphToSchema(graph: SchemaGraph): JsonSchema {
     }
 
     for (const relation of SINGLE_APPLICATORS) {
+      const relationEdge = outgoing.find((edge) => edge.relation === relation);
+      if (node.structuralPresence[relation] || relationEdge) {
+        const child = relationEdge ? nodeById.get(relationEdge.target) : undefined;
+        if (child) result[relation] = serialize(child);
+      }
+    }
+
+    for (const relation of ADVANCED_APPLICATORS) {
       const relationEdge = outgoing.find((edge) => edge.relation === relation);
       if (node.structuralPresence[relation] || relationEdge) {
         const child = relationEdge ? nodeById.get(relationEdge.target) : undefined;

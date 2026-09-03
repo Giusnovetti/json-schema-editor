@@ -13,6 +13,7 @@ import {
 import { useSchemaStore } from '../store/useSchemaStore';
 import { CompositionFields } from './CompositionFields';
 import { ConstraintFields } from './ConstraintFields';
+import { AdvancedFields } from './AdvancedFields';
 
 const TYPES: JsonSchemaPrimitiveType[] = [
   'object',
@@ -31,6 +32,8 @@ interface RenameRowProps {
   onRename: (nextName: string) => void;
   onSelect: () => void;
   onDelete?: () => void;
+  required?: boolean;
+  onRequiredChange?: (required: boolean) => void;
 }
 
 function RenameRow({
@@ -40,6 +43,8 @@ function RenameRow({
   onRename,
   onSelect,
   onDelete,
+  required,
+  onRequiredChange,
 }: RenameRowProps) {
   const [draft, setDraft] = useState(name);
 
@@ -68,6 +73,16 @@ function RenameRow({
       >
         Rename
       </button>
+      {onRequiredChange && (
+        <label className="checkbox-row resource-row__required">
+          <input
+            type="checkbox"
+            checked={required}
+            onChange={(event) => onRequiredChange(event.target.checked)}
+          />
+          Required
+        </label>
+      )}
       {onDelete && (
         <button type="button" className="danger-button" onClick={onDelete}>
           Delete
@@ -90,6 +105,9 @@ export function NodeInspector() {
   );
   const removePropertyFromSelected = useSchemaStore(
     (state) => state.removePropertyFromSelected,
+  );
+  const setPropertyRequiredOnSelected = useSchemaStore(
+    (state) => state.setPropertyRequiredOnSelected,
   );
   const addDefinitionToSelected = useSchemaStore(
     (state) => state.addDefinitionToSelected,
@@ -161,6 +179,11 @@ export function NodeInspector() {
   const propertyNames = properties
     .map((edge) => edge.key)
     .filter((value): value is string => Boolean(value));
+  const requiredPropertyNames = new Set(
+    Array.isArray(node.keywords.required)
+      ? node.keywords.required.filter((value): value is string => typeof value === 'string')
+      : [],
+  );
   const definitionsKeyword = dialectDescriptor(graph.dialect).definitionsKeyword;
   const definitionNames = ownedDefinitions
     .map((edge) => edge.key)
@@ -254,6 +277,8 @@ export function NodeInspector() {
 
       <ConstraintFields node={node} type={inferredType} />
 
+      <AdvancedFields node={node} />
+
       <CompositionFields node={node} />
 
       <section className="inspector-section">
@@ -293,6 +318,8 @@ export function NodeInspector() {
                     siblingNames={propertyNames}
                     onSelect={() => selectNode(edge.target)}
                     onRename={(nextName) => renamePropertyOnSelected(name, nextName)}
+                    required={requiredPropertyNames.has(name)}
+                    onRequiredChange={(nextRequired) => setPropertyRequiredOnSelected(name, nextRequired)}
                     onDelete={() => removePropertyFromSelected(name)}
                   />
                 );

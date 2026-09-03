@@ -87,24 +87,26 @@ function rewriteGraphPointerPrefix(
     if (node.kind !== 'schema') return pointer === node.pointer ? node : { ...node, pointer };
 
     const keywords = { ...node.keywords };
-    if (typeof keywords.$ref === 'string') {
-      const refPointer = keywords.$ref === '#'
+    for (const keyword of ['$ref', '$dynamicRef'] as const) {
+      if (typeof keywords[keyword] !== 'string') continue;
+      const refValue = keywords[keyword] as string;
+      const refPointer = refValue === '#'
         ? ''
-        : keywords.$ref.startsWith('#/')
-          ? keywords.$ref.slice(1)
+        : refValue.startsWith('#/')
+          ? refValue.slice(1)
           : undefined;
       if (refPointer !== undefined) {
         const rewrittenRef = replacePointerPrefix(refPointer, oldPointer, newPointer);
-        if (rewrittenRef !== undefined) keywords.$ref = pointerToLocalRef(rewrittenRef);
+        if (rewrittenRef !== undefined) keywords[keyword] = pointerToLocalRef(rewrittenRef);
       }
     }
-    return pointer === node.pointer && keywords.$ref === node.keywords.$ref
+    return pointer === node.pointer && keywords.$ref === node.keywords.$ref && keywords.$dynamicRef === node.keywords.$dynamicRef
       ? node
       : { ...node, pointer, keywords };
   });
 
   const edges = graph.edges.map((candidate) => {
-    if (candidate.relation !== 'ref' || typeof candidate.ref !== 'string') return candidate;
+    if ((candidate.relation !== 'ref' && candidate.relation !== 'dynamicRef') || typeof candidate.ref !== 'string') return candidate;
     const refPointer = candidate.ref === '#'
       ? ''
       : candidate.ref.startsWith('#/')
@@ -114,7 +116,7 @@ function rewriteGraphPointerPrefix(
     const rewrittenRefPointer = replacePointerPrefix(refPointer, oldPointer, newPointer);
     if (rewrittenRefPointer === undefined) return candidate;
     const ref = pointerToLocalRef(rewrittenRefPointer);
-    return { ...candidate, ref, id: edgeId(candidate.source, 'ref', candidate.target, ref) };
+    return { ...candidate, ref, id: edgeId(candidate.source, candidate.relation, candidate.target, ref) };
   });
 
   return { ...graph, nodes, edges };

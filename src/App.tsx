@@ -1,13 +1,17 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { DIALECTS, dialectLabel, supportedDialectId, type SupportedDialect } from './core';
 import { GraphCanvas } from './graph/GraphCanvas';
 import { NodeInspector } from './inspector/NodeInspector';
 import { SchemaCodeEditor } from './SchemaCodeEditor';
 import { useSchemaStore } from './store/useSchemaStore';
 import { ValidationPanel } from './validation/ValidationPanel';
+import { FormPreview } from './jsonforms/FormPreview';
+import { UiSchemaEditor } from './jsonforms/UiSchemaEditor';
+import { UiSchemaTree } from './jsonforms/UiSchemaTree';
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<'schema' | 'forms'>('schema');
   const sourceText = useSchemaStore((state) => state.sourceText);
   const parseError = useSchemaStore((state) => state.parseError);
   const schemaDiagnostics = useSchemaStore((state) => state.schemaDiagnostics);
@@ -60,7 +64,8 @@ export default function App() {
       <header className="topbar">
         <div>
           <strong>JSON Schema Graph Builder</strong>
-          <span className="badge">MVP 3 · Draft-07</span>
+          <span className="badge">MVP 4 · JF-1</span>
+          <button type="button" onClick={() => setMode(mode === 'schema' ? 'forms' : 'schema')}>{mode === 'schema' ? 'JSON Forms' : 'Schema Graph'}</button>
         </div>
         <div className="topbar__stats">
           <span>{graph.nodes.length} nodes</span>
@@ -95,7 +100,7 @@ export default function App() {
         </div>
       </header>
 
-      <section className="workspace">
+      {mode === 'schema' ? <section className="workspace">
         <aside className="editor-pane">
           <section className="schema-editor-panel panel">
             <div className="panel__header">
@@ -129,7 +134,14 @@ export default function App() {
         <aside className="inspector-pane panel">
           <NodeInspector />
         </aside>
-      </section>
+      </section> : <section className="workspace forms-workspace">
+        <aside className="forms-editor-pane">
+          <UiSchemaEditor />
+          <ValidationPanel />
+        </aside>
+        <FormPreview />
+        <UiSchemaTree />
+      </section>}
     </main>
   );
 }

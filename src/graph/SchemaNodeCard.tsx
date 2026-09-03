@@ -10,7 +10,7 @@ export function SchemaNodeCard({ data, selected }: NodeProps) {
       : '';
 
   return (
-    <div className={`schema-node ${stateClass} ${selected ? 'schema-node--selected' : ''}`}>
+    <div className={`schema-node ${stateClass} ${selected ? 'schema-node--selected' : ''} ${node.isRelatedNode ? 'schema-node--related' : ''}`}>
       <Handle type="target" position={Position.Left} />
       <div className="schema-node__header">
         <strong>{node.title}</strong>
@@ -26,6 +26,8 @@ export function SchemaNodeCard({ data, selected }: NodeProps) {
         {node.compositionCount > 0 && <span>{node.compositionCount} composition</span>}
         {node.conditionalCount > 0 && <span>{node.conditionalCount} conditional</span>}
         {node.dependentSchemaCount > 0 && <span>{node.dependentSchemaCount} dependent</span>}
+        {node.advancedCount > 0 && <span>{node.advancedCount} advanced</span>}
+        {node.resourceId && <span>$id: {node.resourceId}</span>}
         <code>{node.pointer}</code>
       </div>
       <Handle type="source" position={Position.Right} />

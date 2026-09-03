@@ -14,14 +14,17 @@ export type SchemaEdgeId = string;
 
 export type ArrayCompositionRelation = 'allOf' | 'anyOf' | 'oneOf';
 export type SingleCompositionRelation = 'not' | 'if' | 'then' | 'else';
+export type AdvancedSchemaRelation = 'contains' | 'unevaluatedProperties' | 'unevaluatedItems';
 export type SchemaRelation =
   | 'property'
   | 'items'
   | 'prefixItem'
   | 'definition'
   | 'ref'
+  | 'dynamicRef'
   | ArrayCompositionRelation
   | SingleCompositionRelation
+  | AdvancedSchemaRelation
   | 'dependentSchema';
 
 export interface StructuralPresence {
@@ -37,6 +40,9 @@ export interface StructuralPresence {
   then?: boolean;
   else?: boolean;
   dependentSchemas?: boolean;
+  contains?: boolean;
+  unevaluatedProperties?: boolean;
+  unevaluatedItems?: boolean;
 }
 
 export interface SchemaNode {

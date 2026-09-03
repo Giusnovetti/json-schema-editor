@@ -1,4 +1,5 @@
 import type {
+  AdvancedSchemaRelation,
   ArrayCompositionRelation,
   JsonSchemaPrimitiveType,
   SchemaEdge,
@@ -25,6 +26,41 @@ function updateNode(
   return {
     ...graph,
     nodes: graph.nodes.map((node) => (node.id === nodeId ? updater(node) : node)),
+  };
+}
+
+export function addAdvancedSchema(
+  graph: SchemaGraph,
+  parentNodeId: string,
+  relation: AdvancedSchemaRelation,
+  type?: JsonSchemaPrimitiveType,
+): SchemaGraph {
+  return addSingleComposition(graph, parentNodeId, relation as SingleCompositionRelation, type);
+}
+
+export function removeAdvancedSchema(
+  graph: SchemaGraph,
+  parentNodeId: string,
+  relation: AdvancedSchemaRelation,
+): SchemaGraph {
+  return removeSingleComposition(graph, parentNodeId, relation as SingleCompositionRelation);
+}
+
+export function addPrefixItem(
+  graph: SchemaGraph,
+  parentNodeId: string,
+  type?: JsonSchemaPrimitiveType,
+): SchemaGraph {
+  const parent = graph.nodes.find((node) => node.id === parentNodeId);
+  if (!parent || parent.kind !== 'schema') return graph;
+  const siblings = graph.edges.filter((edge) => edge.source === parentNodeId && edge.relation === 'prefixItem');
+  const index = siblings.length;
+  const keyword = dialectDescriptor(graph.dialect).id === 'draft-07' ? 'items' : 'prefixItems';
+  const child = createSchemaNode(appendPointer(parent.pointer, keyword, String(index)), type);
+  return {
+    ...graph,
+    nodes: [...graph.nodes.map((node) => node.id === parentNodeId ? { ...node, structuralPresence: { ...node.structuralPresence, prefixItems: true } } : node), child],
+    edges: [...graph.edges, { id: edgeId(parent.id, 'prefixItem', child.id, String(index)), source: parent.id, target: child.id, relation: 'prefixItem', index }],
   };
 }
 
@@ -312,6 +348,40 @@ export function addProperty(
       child,
     ],
     edges: [...graph.edges, edge],
+  };
+}
+
+export function setPropertyRequired(
+  graph: SchemaGraph,
+  parentNodeId: string,
+  propertyName: string,
+  required: boolean,
+): SchemaGraph {
+  const parent = graph.nodes.find((node) => node.id === parentNodeId);
+  if (
+    !parent ||
+    parent.kind !== 'schema' ||
+    !keyedEdge(graph, parentNodeId, 'property', propertyName)
+  ) return graph;
+
+  const current = stringArray(parent.keywords.required);
+  const next = required
+    ? Array.from(new Set([...current, propertyName]))
+    : current.filter((name) => name !== propertyName);
+
+  if (next.length === current.length && next.every((name, index) => name === current[index])) {
+    return graph;
+  }
+
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      if (node.id !== parentNodeId) return node;
+      const keywords = { ...node.keywords };
+      if (next.length > 0) keywords.required = next;
+      else delete keywords.required;
+      return { ...node, keywords };
+    }),
   };
 }
 

@@ -8,6 +8,8 @@ import type {
 } from './model';
 import { dialectForSchema, isDraft07Dialect } from './dialect';
 import { appendPointer, localRefToPointer, nodeIdForPointer } from './pointer';
+import { findUnresolvedReferences, resolveReference, type SchemaResourceRegistry } from './references';
+import { schemaToGraph } from './parser';
 
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 export type ValidationSource = 'schema' | 'instance';
@@ -47,6 +49,8 @@ const NON_NEGATIVE_INTEGER_KEYWORDS = [
   'maxItems',
   'minProperties',
   'maxProperties',
+  'minContains',
+  'maxContains',
 ] as const;
 
 const NUMBER_KEYWORDS = [
@@ -170,8 +174,10 @@ function validTypeDeclaration(value: unknown): boolean {
  * Validates the subset editable through MVP 3 for Draft 2020-12 and Draft-07.
  * Unknown extension keywords are accepted so they can round-trip without data loss.
  */
-export function validateSchemaDocument(schema: JsonSchema): ValidationResult {
+export function validateSchemaDocument(schema: JsonSchema, resources: SchemaResourceRegistry = {}): ValidationResult {
   const diagnostics: ValidationDiagnostic[] = [];
+  const seenIds = new Set<string>();
+  const seenAnchors = new Set<string>();
   const dialect = dialectForSchema(schema);
   const draft07 = dialect.id === 'draft-07';
 
@@ -288,6 +294,28 @@ export function validateSchemaDocument(schema: JsonSchema): ValidationResult {
           '$ref',
         ),
       );
+    }
+
+    for (const keyword of ['$id', '$anchor', '$dynamicAnchor', '$dynamicRef'] as const) {
+      if (keyword in value && typeof value[keyword] !== 'string') {
+        diagnostics.push(schemaDiagnostic(appendPointer(pointer, keyword), `${keyword} must be a string.`, keyword));
+      }
+    }
+    for (const keyword of ['$anchor', '$dynamicAnchor'] as const) {
+      const anchor = value[keyword];
+      if (typeof anchor === 'string' && !/^[A-Za-z_][-A-Za-z0-9._]*$/.test(anchor)) {
+        diagnostics.push(schemaDiagnostic(appendPointer(pointer, keyword), `${keyword} must be a valid plain-name anchor.`, keyword));
+      }
+    }
+    if (typeof value.$id === 'string') {
+      if (seenIds.has(value.$id)) diagnostics.push(schemaDiagnostic(appendPointer(pointer, '$id'), `Duplicate schema resource identifier ${JSON.stringify(value.$id)}.`, '$id'));
+      seenIds.add(value.$id);
+    }
+    for (const keyword of ['$anchor', '$dynamicAnchor'] as const) {
+      const anchor = value[keyword];
+      if (typeof anchor !== 'string') continue;
+      if (seenAnchors.has(anchor)) diagnostics.push(schemaDiagnostic(appendPointer(pointer, keyword), `Duplicate anchor ${JSON.stringify(anchor)}.`, keyword));
+      seenAnchors.add(anchor);
     }
 
     if ('required' in value) {
@@ -477,6 +505,18 @@ export function validateSchemaDocument(schema: JsonSchema): ValidationResult {
       }
     }
 
+    if (!draft07) {
+      for (const keyword of ['contains', 'unevaluatedProperties', 'unevaluatedItems'] as const) {
+        if (!(keyword in value)) continue;
+        const childPointer = appendPointer(pointer, keyword);
+        if (!isSchema(value[keyword])) diagnostics.push(schemaDiagnostic(childPointer, `${keyword} must contain a schema object or boolean.`, keyword));
+        else visit(value[keyword], childPointer);
+      }
+      if (typeof value.minContains === 'number' && typeof value.maxContains === 'number' && value.minContains > value.maxContains) {
+        diagnostics.push(schemaDiagnostic(pointer, 'minContains is greater than maxContains.', 'minContains', 'warning'));
+      }
+    }
+
     if (draft07 && 'additionalItems' in value) {
       const childPointer = appendPointer(pointer, 'additionalItems');
       if (!isSchema(value.additionalItems)) {
@@ -637,6 +677,11 @@ export function validateSchemaDocument(schema: JsonSchema): ValidationResult {
   }
 
   visit(schema, '');
+  const referenceGraph = schemaToGraph(schema);
+  for (const unresolved of findUnresolvedReferences(referenceGraph, resources)) {
+    const node = referenceGraph.nodes.find((candidate) => candidate.id === unresolved.nodeId);
+    diagnostics.push(schemaDiagnostic(node?.pointer ?? '', `${unresolved.keyword} ${JSON.stringify(unresolved.reference)} is unresolved: ${unresolved.message}`, unresolved.keyword, 'warning'));
+  }
   return {
     valid: !diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
     diagnostics,
@@ -768,7 +813,7 @@ export const MVP2_FORMATS = [
 ] as const;
 
 /** Validates a JSON instance against the graph-supported Draft 2020-12 / Draft-07 subset. */
-export function validateInstance(graph: SchemaGraph, instance: unknown): ValidationResult {
+export function validateInstance(graph: SchemaGraph, instance: unknown, resources: SchemaResourceRegistry = {}): ValidationResult {
   const draft07 = isDraft07Dialect(graph.dialect);
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   const refTargets = new Map(
@@ -814,13 +859,29 @@ export function validateInstance(graph: SchemaGraph, instance: unknown): Validat
       const target = targetId ? nodeById.get(targetId) : undefined;
       if (target) {
         diagnostics.push(...validateNode(target, value, instancePath, nextStack));
-      } else if (localRefToPointer(keywords.$ref) !== undefined) {
+      } else {
+        const resolved = resolveReference(graph, node.id, keywords.$ref, resources);
+        if (resolved.status === 'resolved') {
+          diagnostics.push(...validateInstance({ ...resolved.graph, rootNodeId: resolved.node.id }, value, resources).diagnostics.map((item) => ({ ...item, instancePath })));
+        } else {
         diagnostics.push(
-          instanceDiagnostic(node, instancePath, `Local reference ${keywords.$ref} cannot be resolved.`, '$ref'),
+          instanceDiagnostic(node, instancePath, `Reference ${keywords.$ref} cannot be resolved.`, '$ref'),
         );
+        }
       }
       // Draft-07 defines a $ref object as a reference object: sibling keywords are ignored.
       if (draft07) return diagnostics;
+    }
+
+    if (!draft07 && typeof keywords.$dynamicRef === 'string') {
+      const targetId = graph.edges.find((edge) => edge.source === node.id && edge.relation === 'dynamicRef')?.target;
+      const target = targetId ? nodeById.get(targetId) : undefined;
+      const resolved = target ? { status: 'resolved' as const, graph, node: target } : resolveReference(graph, node.id, keywords.$dynamicRef, resources);
+      if (resolved.status === 'resolved') {
+        if (resolved.graph === graph) diagnostics.push(...validateNode(resolved.node, value, instancePath, nextStack));
+        else diagnostics.push(...validateInstance({ ...resolved.graph, rootNodeId: resolved.node.id }, value, resources).diagnostics.map((item) => ({ ...item, instancePath })));
+      }
+      else diagnostics.push(instanceDiagnostic(node, instancePath, `Dynamic reference ${keywords.$dynamicRef} cannot be resolved.`, '$dynamicRef'));
     }
 
     const types = declaredTypes(keywords.type);
@@ -906,6 +967,21 @@ export function validateInstance(graph: SchemaGraph, instance: unknown): Validat
           diagnostics.push(...validateNode(itemsNode, item, appendPointer(instancePath, String(index)), nextStack));
         });
       }
+      const containsNode = childFor(node, 'contains');
+      const contained = new Set<number>();
+      if (containsNode) {
+        value.forEach((item, index) => {
+          if (validateNode(containsNode, item, appendPointer(instancePath, String(index)), nextStack).length === 0) contained.add(index);
+        });
+        const minimum = typeof keywords.minContains === 'number' ? keywords.minContains : 1;
+        const maximum = typeof keywords.maxContains === 'number' ? keywords.maxContains : Infinity;
+        if (contained.size < minimum || contained.size > maximum) diagnostics.push(instanceDiagnostic(node, instancePath, `Array contains ${contained.size} matching items; expected ${minimum}..${maximum === Infinity ? '∞' : maximum}.`, 'contains'));
+      }
+      const unevaluatedItems = childFor(node, 'unevaluatedItems');
+      if (unevaluatedItems) value.forEach((item, index) => {
+        if (index < prefixItems.length || itemsNode || contained.has(index)) return;
+        diagnostics.push(...validateNode(unevaluatedItems, item, appendPointer(instancePath, String(index)), nextStack));
+      });
     }
 
     if (isObject(value)) {
@@ -933,6 +1009,11 @@ export function validateInstance(graph: SchemaGraph, instance: unknown): Validat
         if (!edge.key || !(edge.key in value)) continue;
         const child = nodeById.get(edge.target);
         if (child) diagnostics.push(...validateNode(child, value[edge.key], appendPointer(instancePath, edge.key), nextStack));
+      }
+      const unevaluatedProperties = childFor(node, 'unevaluatedProperties');
+      if (unevaluatedProperties) {
+        const evaluated = new Set(propertyEdges.map((edge) => edge.key).filter((key): key is string => Boolean(key)));
+        for (const [key, item] of Object.entries(value)) if (!evaluated.has(key)) diagnostics.push(...validateNode(unevaluatedProperties, item, appendPointer(instancePath, key), nextStack));
       }
 
       const propertyDependenciesValue = draft07 ? keywords.dependencies : keywords.dependentRequired;

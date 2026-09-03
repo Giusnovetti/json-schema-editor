@@ -30,6 +30,28 @@ describe('projectGraph validation projection', () => {
   });
 });
 
+it('highlights a selected node, all its relations, and directly connected nodes', () => {
+  const graph = schemaToGraph({
+    properties: { profile: { type: 'object' } },
+    $defs: { profileAlias: { $ref: '#/properties/profile' } },
+  });
+  const profile = graph.nodes.find((node) => node.pointer === '/properties/profile')!;
+  const projection = projectGraph(graph, {}, [], profile.id);
+  const connectedEdges = graph.edges.filter(
+    (edge) => edge.source === profile.id || edge.target === profile.id,
+  );
+  const connectedNodeIds = new Set(
+    connectedEdges.flatMap((edge) => [edge.source, edge.target]),
+  );
+  connectedNodeIds.delete(profile.id);
+
+  expect(projection.nodes.find((node) => node.id === profile.id)?.selected).toBe(true);
+  expect(projection.nodes.filter((node) => node.data.isRelatedNode).map((node) => node.id))
+    .toEqual(expect.arrayContaining([...connectedNodeIds]));
+  expect(projection.edges.filter((edge) => edge.className?.includes('schema-edge--highlighted')).map((edge) => edge.id))
+    .toEqual(expect.arrayContaining(connectedEdges.map((edge) => edge.id)));
+});
+
 
 it('projects composition metadata and labels', () => {
   const graph = schemaToGraph({
@@ -62,5 +84,24 @@ it('projects Draft-07 definition and tuple labels', () => {
   expect(root.data.definitionKeyword).toBe('definitions');
   expect(projection.edges.map((edge) => edge.label)).toEqual(
     expect.arrayContaining(['items[0]', 'definition: Value']),
+  );
+});
+
+it('projects MVP4 resource metadata and advanced relation labels', () => {
+  const graph = schemaToGraph({
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    $id: 'https://example.test/list',
+    prefixItems: [{ type: 'string' }],
+    contains: { type: 'number' },
+    unevaluatedItems: false,
+    $dynamicRef: '#/$defs/value',
+    $defs: { value: { type: 'number' } },
+  });
+  const projection = projectGraph(graph);
+  const root = projection.nodes.find((node) => node.id === graph.rootNodeId)!;
+  expect(root.data.resourceId).toBe('https://example.test/list');
+  expect(root.data.advancedCount).toBe(4);
+  expect(projection.edges.map((edge) => edge.label)).toEqual(
+    expect.arrayContaining(['prefixItems[0]', 'contains', 'unevaluatedItems', '$dynamicRef']),
   );
 });

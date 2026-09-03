@@ -31,12 +31,62 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .topbar > div { display: flex; align-items: center; gap: 10px; }
 .topbar__stats { justify-content: center; color: #667085; font-size: 13px; }
 .topbar__actions { justify-content: flex-end; }
-.topbar button, .inspector-form button {
+.topbar button, .inspector-form button, .compact-actions button, .ui-tree button {
   border: 1px solid #cfd5df;
   border-radius: 7px;
   padding: 7px 11px;
   background: #fff;
 }
+
+.forms-workspace { grid-template-columns: minmax(380px, 36vw) minmax(420px, 1fr) 340px; }
+.forms-editor-pane { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(300px, 55%) minmax(260px, 45%); gap: 1px; }
+.ui-schema-editor, .form-preview, .ui-tree { min-height: 0; display: grid; grid-template-rows: 42px minmax(0, 1fr); }
+.compact-actions { display: flex; gap: 4px; }
+.compact-actions button { padding: 3px 6px; font-size: 11px; }
+.ui-schema-error { position: absolute; z-index: 2; left: 8px; right: 8px; top: 48px; }
+.form-preview__content, .ui-tree__content { min-height: 0; overflow: auto; padding: 14px; }
+.form-preview__content input, .form-preview__content select, .form-preview__content textarea { max-width: 100%; padding: 7px; border: 1px solid #cfd5df; border-radius: 6px; }
+.form-preview__content label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.ui-element-list, .ui-diagnostics, .form-error-list { display: flex; flex-direction: column; gap: 5px; }
+.ui-element { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; text-align: left; align-items: center; }
+.ui-element span { overflow: hidden; color: #667085; font-size: 11px; text-overflow: ellipsis; }
+.ui-element i { color: #667085; font-size: 10px; }
+.ui-element--selected { border-color: #4c6fff !important; background: #eef2ff !important; }
+.ui-drop-before { height: 4px; border-radius: 999px; }
+.ui-drop-before:hover { background: #4c6fff; }
+.ui-tree__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+.ui-tree__actions select { min-width: 100%; padding: 7px; }
+.ui-element-inspector { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+.ui-element-inspector label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.ui-element-inspector input, .ui-element-inspector select { width: 100%; padding: 7px; }
+.ui-diagnostics, .form-error-list { margin-top: 12px; }
+.ui-diagnostics button, .form-error-list button { color: #a61b1b; text-align: left; }
+.schema-palette { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+.schema-palette strong { width: 100%; font-size: 12px; }
+.schema-palette button { padding: 4px 7px; font-size: 11px; }
+.ui-element-inspector textarea { min-height: 100px; resize: vertical; font-family: ui-monospace, monospace; font-size: 11px; }
+.preview-readonly { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 11px; font-weight: 500; }
+.validation-mode { max-width: 130px; font-size: 11px; }
+.rule-editor { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+.rule-editor__header, .rule-presets { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.rule-presets { justify-content: flex-start; }
+.additional-errors { margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+.additional-errors summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+.additional-errors textarea { width: 100%; min-height: 100px; margin-top: 8px; font-family: ui-monospace, monospace; font-size: 11px; }
+.extensibility-panel, .renderer-diagnostics { margin-top: 14px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+.extensibility-panel summary, .renderer-diagnostics summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+.extensibility-panel h4 { margin: 14px 0 7px; font-size: 12px; }
+.extensibility-panel > label, .registered-uischema label { display: grid; gap: 4px; margin: 6px 0; font-size: 11px; font-weight: 600; }
+.extensibility-panel input, .extensibility-panel select, .extensibility-panel textarea { width: 100%; padding: 6px; }
+.registered-uischema { display: grid; gap: 5px; margin-top: 8px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 7px; }
+.registered-uischema textarea { min-height: 100px; font-family: ui-monospace, monospace; font-size: 10px; }
+.dynamic-control { padding: 8px; border: 1px solid #7c3aed; border-radius: 7px; background: #f5f3ff; }
+.custom-layout-frame { border: 2px dashed #4c6fff; border-radius: 8px; padding: 10px; }
+.renderer-diagnostics { font-size: 11px; }
+.resolved-status { margin: 8px 0; padding: 7px; border-radius: 6px; background: #ecfdf3; color: #067647; font-size: 11px; }
+.readonly-origins, .usage-list { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 7px; font-size: 11px; }
+.readonly-origins span { display: inline-flex; border-radius: 999px; padding: 2px 6px; background: #f2f4f7; }
+.usage-list button { text-align: left; }
 
 .badge, .status {
   display: inline-flex;
@@ -101,7 +151,16 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   background: #fff;
   box-shadow: 0 4px 16px rgba(31, 41, 55, 0.08);
 }
-.schema-node--selected { outline: 2px solid #4c6fff; outline-offset: 2px; }
+.schema-node--selected {
+  border-color: #38bdf8;
+  background: #e0f2fe;
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+.schema-node--related {
+  border-color: #7dd3fc;
+  background: #e0f2fe;
+}
 .schema-node__header {
   display: flex;
   align-items: center;
@@ -426,6 +485,16 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .react-flow__edge.composition-edge .react-flow__edge-path {
   stroke-dasharray: 5 4;
+}
+
+.react-flow__edge.schema-edge--highlighted .react-flow__edge-path {
+  stroke: #38bdf8;
+  stroke-width: 3;
+}
+
+.react-flow__edge.schema-edge--highlighted .react-flow__edge-text {
+  fill: #0369a1;
+  font-weight: 700;
 }
 
 .dialect-select {

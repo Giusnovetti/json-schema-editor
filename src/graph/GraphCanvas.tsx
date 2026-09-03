@@ -18,6 +18,7 @@ export function GraphCanvas() {
   const graph = useSchemaStore((state) => state.graph);
   const nodePositions = useSchemaStore((state) => state.nodePositions);
   const selectNode = useSchemaStore((state) => state.selectNode);
+  const selectedNodeId = useSchemaStore((state) => state.selectedNodeId);
   const setNodePosition = useSchemaStore((state) => state.setNodePosition);
   const schemaDiagnostics = useSchemaStore((state) => state.schemaDiagnostics);
   const instanceDiagnostics = useSchemaStore((state) => state.instanceDiagnostics);
@@ -26,8 +27,8 @@ export function GraphCanvas() {
     [schemaDiagnostics, instanceDiagnostics],
   );
   const projection = useMemo(
-    () => projectGraph(graph, nodePositions, diagnostics),
-    [graph, nodePositions, diagnostics],
+    () => projectGraph(graph, nodePositions, diagnostics, selectedNodeId),
+    [graph, nodePositions, diagnostics, selectedNodeId],
   );
   const [nodes, setNodes, onNodesChange] = useNodesState<SchemaFlowNode>(projection.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(projection.edges);

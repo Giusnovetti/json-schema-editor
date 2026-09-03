@@ -6,6 +6,7 @@ import {
   removeProperty,
   renameDefinition,
   renameProperty,
+  setPropertyRequired,
   setNodeReference,
   setNodeKeyword,
 } from './operations';
@@ -71,6 +72,20 @@ describe('SchemaGraph parser/serializer', () => {
 
     const arrayGraph = schemaToGraph({ items: { type: 'string' } });
     expect(inferNodeType(arrayGraph, arrayGraph.nodes[0]!)).toBe('array');
+  });
+});
+
+describe('property required flag', () => {
+  it('can toggle an existing property required and optional', () => {
+    const graph = schemaToGraph({ properties: { name: { type: 'string' } } });
+    const required = setPropertyRequired(graph, graph.rootNodeId, 'name', true);
+    expect(graphToSchema(required)).toEqual({
+      required: ['name'],
+      properties: { name: { type: 'string' } },
+    });
+
+    expect(graphToSchema(setPropertyRequired(required, graph.rootNodeId, 'name', false)))
+      .toEqual({ properties: { name: { type: 'string' } } });
   });
 });
 
