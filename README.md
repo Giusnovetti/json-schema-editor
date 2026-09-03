@@ -6,6 +6,10 @@ JSON Schema Graph Builder keeps source JSON, a semantic graph, validation diagno
 
 > Built with React, TypeScript, React Flow, Zustand, Monaco Editor, AJV, and JSON Forms.
 
+## Live demo
+
+Try the application online: **[giusnovetti.github.io/json-schema-editor](https://giusnovetti.github.io/json-schema-editor/)**
+
 ## Why this project?
 
 Large JSON Schemas quickly become difficult to navigate as properties, definitions, references, composition branches, and conditional rules accumulate. This project turns those relationships into an explorable graph without giving up the portability of standard JSON Schema documents.
